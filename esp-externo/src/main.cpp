@@ -8,12 +8,10 @@
 #include <PubSubClient.h>
 #include <WiFiClientSecure.h>
 
-// Configurações do DHT
 #define DHTPIN 2
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
-// Configurações do WiFiManager
 AsyncWebServer server(80);
 const char* PARAM_INPUT_1 = "ssid";
 const char* PARAM_INPUT_2 = "pass";
@@ -82,7 +80,6 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 WiFiClientSecure wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-// Inicializa o LittleFS
 void initLittleFS() {
   if (!LittleFS.begin(true)) {
     Serial.println("Erro ao montar o LittleFS");
@@ -90,7 +87,6 @@ void initLittleFS() {
   Serial.println("LittleFS montado com sucesso");
 }
 
-// Lê arquivo do LittleFS
 String readFile(fs::FS &fs, const char * path) {
   File file = fs.open(path);
   if (!file || file.isDirectory()) {
@@ -104,7 +100,6 @@ String readFile(fs::FS &fs, const char * path) {
   return fileContent;
 }
 
-// Escreve arquivo no LittleFS
 void writeFile(fs::FS &fs, const char * path, const char * message) {
   File file = fs.open(path, FILE_WRITE);
   if (!file) {
@@ -113,7 +108,6 @@ void writeFile(fs::FS &fs, const char * path, const char * message) {
   file.print(message);
 }
 
-// Tenta conectar à rede WiFi pré-definida
 bool connectToPredefinedWiFi() {
   const char* predefinedSSID = "Galaxy A716D96";
   const char* predefinedPassword = "blxf2209";
@@ -122,7 +116,7 @@ bool connectToPredefinedWiFi() {
   Serial.println("Tentando conectar à rede WiFi pré-definida...");
 
   unsigned long startTime = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) { // Timeout de 10 segundos
+  while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) {
     delay(500);
     Serial.print(".");
   }
@@ -136,7 +130,6 @@ bool connectToPredefinedWiFi() {
   }
 }
 
-// Inicializa o WiFi Manager
 void startWiFiManager() {
   WiFi.softAP("ESP-WIFI-MANAGER", NULL);
   IPAddress IP = WiFi.softAPIP();
@@ -178,7 +171,6 @@ void startWiFiManager() {
   server.begin();
 }
 
-// Conecta ao broker MQTT
 void connectToMQTT() {
   mqttClient.setServer(MQTT_BROKER_URL, MQTT_PORT);
   wifiClient.setCACert(MQTT_CAFILE);
@@ -205,7 +197,6 @@ void connectToMQTT() {
   }
 }
 
-// Envia dados do sensor via MQTT
 void sendSensorData() {
   float temperature = dht.readTemperature();
   float humidity = dht.readHumidity();
@@ -229,29 +220,23 @@ void setup() {
   dht.begin();
   initLittleFS();
 
-  // Tenta conectar à rede WiFi pré-definida
   if (!connectToPredefinedWiFi()) {
-    // Se não conseguir, inicia o WiFi Manager
     startWiFiManager();
   } else {
-    // Se conectar, prossegue com a lógica normal
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
       request->send(LittleFS, "/index.html", "text/html");
     });
     server.serveStatic("/", LittleFS, "/");
     server.begin();
 
-    // Conecta ao MQTT e envia dados
     connectToMQTT();
     sendSensorData();
 
-    // Entra em modo deep sleep por 10 minutos
     Serial.println("Conectado ao WiFi. Entrando em modo deep sleep por 10 minutos...");
-    esp_sleep_enable_timer_wakeup(10 * 60 * 1000000); // 10 minutos em microssegundos
+    esp_sleep_enable_timer_wakeup(10 * 60 * 1000000);
     esp_deep_sleep_start();
   }
 }
 
 void loop() {
-  // O código não chega aqui devido ao deep sleep ou ao WiFi Manager
 }
