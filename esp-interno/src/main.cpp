@@ -10,19 +10,15 @@
 #include <ESPmDNS.h>
 #include <Update.h>
 
-// Configurações do Sensor de Chuva
 #define RAIN_SENSOR_PIN 33
 
-// Configurações do Sensor de Luz
 #define LIGHT_SENSOR_PIN 32
 #define LIGHT_THRESHOLD 1000  // Ajuste conforme necessário
 #define LED_PIN 4
 
-// Configurações do Servo Motor
 #define SERVO_PIN 13
 Servo windowServo;
 
-// Configurações do WiFiManager
 AsyncWebServer server(80);
 const char* host = "esp32";
 const char* PARAM_INPUT_1 = "ssid";
@@ -93,7 +89,6 @@ emyPxgcYxn/eR44/KJ4EBs+lVDR3veyJm+kXQ99b21/+jh5Xos1AnX5iItreGCc=
 WiFiClientSecure wifiClient;
 PubSubClient mqttClient(wifiClient);
 
-// Inicializa o LittleFS
 void initLittleFS() {
   if (!LittleFS.begin(true)) {
     Serial.println("Erro ao montar o LittleFS");
@@ -101,7 +96,6 @@ void initLittleFS() {
   Serial.println("LittleFS montado com sucesso");
 }
 
-// Lê arquivo do LittleFS
 String readFile(fs::FS &fs, const char * path) {
   File file = fs.open(path);
   if (!file || file.isDirectory()) {
@@ -115,7 +109,6 @@ String readFile(fs::FS &fs, const char * path) {
   return fileContent;
 }
 
-// Escreve arquivo no LittleFS
 void writeFile(fs::FS &fs, const char * path, const char * message) {
   File file = fs.open(path, FILE_WRITE);
   if (!file) {
@@ -124,7 +117,6 @@ void writeFile(fs::FS &fs, const char * path, const char * message) {
   file.print(message);
 }
 
-// Tenta conectar à rede WiFi pré-definida
 bool connectToPredefinedWiFi() {
   const char* predefinedSSID = "Galaxy A716D96";
   const char* predefinedPassword = "blxf2209";
@@ -133,7 +125,7 @@ bool connectToPredefinedWiFi() {
   Serial.println("Tentando conectar à rede WiFi pré-definida...");
 
   unsigned long startTime = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) { // Timeout de 10 segundos
+  while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) {
     delay(500);
     Serial.print(".");
   }
@@ -149,7 +141,6 @@ bool connectToPredefinedWiFi() {
   }
 }
 
-// Inicializa o WiFi Manager
 void startWiFiManager() {
   WiFi.softAP("ESP-WIFI-MANAGER", NULL);
   IPAddress IP = WiFi.softAPIP();
@@ -278,7 +269,6 @@ const char* serverIndex =
   
   Serial.println("mDNS configurado e inicializado;");
   
-  // Configura as páginas de login e upload de firmware OTA
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/html", loginIndex);
   });
@@ -287,26 +277,22 @@ const char* serverIndex =
     request->send(200, "text/html", serverIndex);
   });
   
-  // Define tratamentos do update de firmware OTA
   server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
     ESP.restart();
   }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
     if (!index) {
-      // Início do upload de firmware OTA
       Serial.printf("Update: %s\n", filename.c_str());
       if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
         Update.printError(Serial);
       }
     }
     
-    // Escrevendo firmware enviado na flash do ESP32
     if (Update.write(data, len) != len) {
       Update.printError(Serial);
     }
     
     if (final) {
-      // Final de upload
       if (Update.end(true)) {
         Serial.printf("Sucesso no update de firmware: %u\nReiniciando ESP32...\n", index + len);
       } else {
@@ -316,7 +302,6 @@ const char* serverIndex =
   });
 }
 
-// Conecta ao broker MQTT
 void connectToMQTT() {
   mqttClient.setServer(MQTT_BROKER_URL, MQTT_PORT);
   wifiClient.setCACert(MQTT_CAFILE);
@@ -370,19 +355,16 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
-// Verifica se está chovendo
 bool isRaining() {
   int rainValue = digitalRead(RAIN_SENSOR_PIN);
-  return rainValue;  // Ajuste o valor conforme necessário
+  return rainValue;  
 }
 
-// Verifica a luminosidade
 bool isDark() {
   int lightValue = digitalRead(LIGHT_SENSOR_PIN);
   return lightValue;
 }
 
-// Faz uma requisição GET para obter o estado inicial da janela
 void getInitialWindowState() {
   HTTPClient http;
   http.begin("https://automate-house-production.up.railway.app/window/state");
@@ -393,13 +375,12 @@ void getInitialWindowState() {
 
     payload.trim();
 
-    // Comparação robusta usando equals()
     if (payload.equals("{\"state\":\"closed\"}")) {
       Serial.println("Peguei o estado na primeira ligação: closed");
-      windowServo.write(15);  // Fecha a janela
+      windowServo.write(15);  
     } else if (payload.equals("{\"state\":\"open\"}")) {
       Serial.println("Peguei o estado na primeira ligação: open");
-      windowServo.write(115);  // Abre a janela
+      windowServo.write(115);  
     } else {
       Serial.println("Estado desconhecido: " + payload);
     }
@@ -429,32 +410,25 @@ void setup() {
   Serial.begin(115200);
   initLittleFS();
 
-  // Inicializa o servo motor
   windowServo.attach(SERVO_PIN);
 
-  // Inicializa o LED
   pinMode(LED_PIN, OUTPUT);
   pinMode(RAIN_SENSOR_PIN, INPUT);
   pinMode(LIGHT_SENSOR_PIN, INPUT);
   digitalWrite(LED_PIN, LOW);
 
-  // Tenta conectar à rede WiFi pré-definida
   if (!connectToPredefinedWiFi()) {
-    // Se não conseguir, inicia o WiFi Manager
     startWiFiManager();
   } else {
-    // Se conectar, prossegue com a lógica normal
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
       request->send(LittleFS, "/index.html", "text/html");
     });
     server.serveStatic("/", LittleFS, "/");
     server.begin();
 
-    // Conecta ao MQTT
     mqttClient.setCallback(mqttCallback);
     connectToMQTT();
 
-    // Obtém o estado inicial da janela
     getInitialWindowState();
 
     setupOTA();
@@ -462,7 +436,6 @@ void setup() {
 }
 
 void loop() {
-  // Verifica se está chovendo
   if (isRaining() == LOW) {  
     String windowState = getWindowStateFromAPI();
   
@@ -471,26 +444,24 @@ void loop() {
     if (windowState.equals("{\"state\":\"open\"}")) {
       mqttClient.publish(MQTT_WINDOW_CONTROL_TOPIC, "{\"state\": \"closed\"}");
       Serial.println("Janela estava aberta. Enviando comando para fechar.");
-      windowServo.write(15);  // Fecha a janela
+      windowServo.write(15);
     } else {
       Serial.println("Janela já está fechada. Nenhum comando enviado.");
     }
   }
 
-  // Verifica a luminosidade
   static unsigned long darkStartTime = 0;
   if (isDark()) {
     if (darkStartTime == 0) {
       darkStartTime = millis();
     } else if (millis() - darkStartTime >= 5000) {
-      digitalWrite(LED_PIN, HIGH);  // Acende o LED
+      digitalWrite(LED_PIN, HIGH);  
     }
   } else {
     darkStartTime = 0;
-    digitalWrite(LED_PIN, LOW);  // Apaga o LED
+    digitalWrite(LED_PIN, LOW); 
   }
 
-  // Mantém a conexão MQTT ativa
   if (!mqttClient.connected()) {
     connectToMQTT();
   }
